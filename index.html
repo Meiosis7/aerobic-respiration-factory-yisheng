@@ -1,0 +1,1461 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>有氧呼吸能量工厂动态地图</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #253044;
+      --muted: #63707f;
+      --teal: #1497a8;
+      --green: #35a96f;
+      --orange: #f09a2f;
+      --red: #e75f80;
+      --paper: rgba(255, 255, 255, 0.82);
+      --glass: rgba(255, 255, 255, 0.68);
+      --shadow: 0 18px 46px rgba(23, 41, 58, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 18% 10%, rgba(255, 229, 174, 0.38), transparent 28%),
+        radial-gradient(circle at 78% 12%, rgba(107, 197, 205, 0.28), transparent 30%),
+        linear-gradient(135deg, #f7fbf7 0%, #edf7f6 52%, #fff8ec 100%);
+    }
+
+    .page {
+      min-height: 100vh;
+      width: min(1580px, 100%);
+      margin: 0 auto;
+      padding: clamp(8px, 1.5vw, 18px);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(270px, 336px);
+      gap: clamp(10px, 1.4vw, 18px);
+      align-items: start;
+    }
+
+    .header {
+      grid-column: 1 / -1;
+      position: relative;
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 34px);
+      line-height: 1.15;
+      letter-spacing: 0;
+      text-shadow: 3px 3px 0 rgba(255, 255, 255, 0.86);
+    }
+
+    .title-block {
+      display: grid;
+      gap: 4px;
+    }
+
+    .chapter-kicker {
+      margin: 0;
+      color: #0f8f84;
+      font-size: clamp(13px, 1.4vw, 17px);
+      font-weight: 900;
+      line-height: 1.2;
+      text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.82);
+    }
+
+    .book-pill {
+      position: absolute;
+      top: 0;
+      right: 0;
+      margin: 0;
+      padding: 4px 16px 5px;
+      border: 2px solid rgba(113, 189, 237, 0.75);
+      border-radius: 999px;
+      color: #207996;
+      background: rgba(255, 255, 255, 0.74);
+      box-shadow: 0 3px 0 rgba(55, 138, 190, 0.18);
+      font-size: clamp(12px, 1.15vw, 15px);
+      font-weight: 900;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .controls {
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      padding-top: 42px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      min-height: 40px;
+      padding: 0 15px;
+      border-radius: 999px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      border: 1px solid rgba(36, 48, 68, 0.18);
+      transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+    }
+
+    button:hover,
+    button:focus-visible {
+      transform: translateY(-1px);
+      outline: none;
+      filter: saturate(1.05);
+    }
+
+    .primary {
+      color: #fff;
+      background: linear-gradient(135deg, #138da0, #17b29d);
+      box-shadow: 0 8px 20px rgba(19, 141, 160, 0.22);
+    }
+
+    .secondary {
+      color: #24515b;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 8px 20px rgba(34, 72, 88, 0.08);
+    }
+
+    .explore {
+      color: #fff;
+      background: linear-gradient(135deg, #e75f80, #f0a934);
+      box-shadow: 0 8px 20px rgba(231, 95, 128, 0.2);
+    }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #d8f0cf;
+      border: 1px solid rgba(255, 255, 255, 0.82);
+      box-shadow: 0 18px 46px rgba(23, 41, 58, 0.14);
+      isolation: isolate;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .map {
+      position: absolute;
+      inset: 0;
+      background: url("assets/aerobic-respiration-stage-bg.png") center / cover no-repeat;
+      filter: saturate(1.03) contrast(1.02);
+      z-index: 0;
+      transform: scale(1.12);
+      transform-origin: 68% 48%;
+    }
+
+    .map-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: saturate(1.03) contrast(1.02);
+      z-index: 0;
+      pointer-events: none;
+      transform: scale(1.12);
+      transform-origin: 68% 48%;
+    }
+
+    .organ,
+    .decor,
+    .molecule,
+    .atp {
+      position: absolute;
+      transform: translate(-50%, -50%) rotate(var(--rotate, 0deg)) scale(var(--scale, 1));
+      filter: drop-shadow(0 10px 16px rgba(28, 45, 62, 0.16));
+      opacity: var(--alpha, 1);
+      pointer-events: auto;
+      cursor: pointer;
+      transition: opacity 220ms ease, transform 220ms ease, filter 220ms ease;
+    }
+
+    .organ {
+      z-index: 2;
+      left: var(--x);
+      top: var(--y);
+      width: var(--w);
+      animation: organIdle 4.8s steps(4, end) infinite;
+      animation-delay: var(--delay, 0s);
+    }
+
+    .organ.is-active {
+      transform: translate(-50%, -50%) rotate(var(--rotate, 0deg)) scale(1.04);
+      filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 14px rgba(240, 154, 47, 0.45));
+      animation: organFocus 1.2s ease-in-out infinite alternate;
+    }
+
+    .decor {
+      z-index: 2;
+      left: var(--x);
+      top: var(--y);
+      width: var(--w);
+      animation: decorIdle 4.2s steps(4, end) infinite;
+    }
+
+    .molecule {
+      z-index: 5;
+      left: var(--x);
+      top: var(--y);
+      width: var(--size);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      color: #253044;
+      background:
+        radial-gradient(circle at 34% 26%, #fff 0 12%, transparent 13%),
+        radial-gradient(circle at center, var(--c1) 0 27%, var(--c2) 58%, var(--c3) 86%);
+      box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.72), 0 12px 18px rgba(24, 44, 60, 0.23);
+      display: grid;
+      place-items: center;
+      font-size: clamp(9px, 1.1vw, 16px);
+      font-weight: 900;
+      text-align: center;
+      line-height: 1.05;
+      touch-action: none;
+      animation: spriteIdle 3.6s steps(4, end) infinite;
+      animation-delay: var(--delay, 0s);
+    }
+
+    .molecule.is-dragging {
+      cursor: grabbing;
+      filter: drop-shadow(0 16px 22px rgba(24, 44, 60, 0.34)) drop-shadow(0 0 14px rgba(255, 255, 255, 0.95));
+    }
+
+    .molecule.is-muted {
+      opacity: 0.36;
+    }
+
+    .molecule.is-current {
+      z-index: 12;
+      animation: pulse 900ms ease-in-out infinite alternate;
+    }
+
+    #productWater {
+      z-index: 9;
+      box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.86), 0 0 30px rgba(141, 226, 255, 0.9), 0 12px 18px rgba(24, 44, 60, 0.23);
+    }
+
+    .molecule.is-hidden,
+    .atp.is-hidden {
+      opacity: 0 !important;
+      pointer-events: none;
+    }
+
+    .atp {
+      z-index: 6;
+      left: var(--x);
+      top: var(--y);
+      width: var(--size);
+      min-width: 86px;
+      min-height: 38px;
+      aspect-ratio: auto;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: linear-gradient(135deg, #f0a934, #e75f80);
+      border: 4px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 0 0 4px rgba(36, 48, 68, 0.15), 0 12px 18px rgba(24, 44, 60, 0.2);
+      font-size: clamp(12px, 1.05vw, 15px);
+      font-weight: 1000;
+      line-height: 1.05;
+      white-space: nowrap;
+      padding: 0 12px;
+      animation: atpPop 1.1s steps(5, end) infinite;
+      pointer-events: none;
+    }
+
+    .organ-label {
+      position: absolute;
+      z-index: 8;
+      left: var(--x);
+      top: var(--y);
+      transform: translate(-50%, -50%);
+      min-height: 26px;
+      padding: 5px 12px 6px;
+      border: 1px solid rgba(36, 48, 68, 0.16);
+      border-radius: 999px;
+      color: #244350;
+      background: rgba(255, 255, 255, 0.74);
+      box-shadow: 0 8px 20px rgba(24, 44, 60, 0.12);
+      font-size: clamp(10px, 1.02vw, 12px);
+      font-weight: 900;
+      white-space: nowrap;
+      cursor: pointer;
+      animation: labelWiggle 5.2s steps(5, end) infinite;
+      animation-delay: var(--delay, 0s);
+    }
+
+    .organ-label:hover,
+    .organ-label:focus-visible {
+      color: #0f7888;
+      outline: none;
+      transform: translate(-50%, -50%) rotate(-2deg) scale(1.05);
+    }
+
+    .organelle-card {
+      position: absolute;
+      z-index: 9;
+      left: 16px;
+      top: 16px;
+      width: min(320px, calc(100% - 32px));
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 3px solid rgba(36, 48, 68, 0.82);
+      background: #fff9e8;
+      box-shadow: 6px 6px 0 rgba(36, 48, 68, 0.14), 0 14px 32px rgba(24, 44, 60, 0.14);
+      opacity: 0;
+      transform: translateY(-8px) rotate(-1deg) scale(0.92);
+      pointer-events: none;
+      transform-origin: 18px 18px;
+    }
+
+    .organelle-card.is-visible {
+      opacity: 1;
+      transform: translateY(0) rotate(0deg) scale(1);
+      pointer-events: auto;
+      animation: cardPop 320ms steps(4, end) both;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0 0 6px;
+    }
+
+    .organelle-card h3 {
+      margin: 0;
+      font-size: clamp(14px, 1.5vw, 17px);
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .card-close {
+      flex: 0 0 auto;
+      width: 27px;
+      height: 27px;
+      min-height: 0;
+      padding: 0;
+      border-radius: 50%;
+      border: 2px solid rgba(36, 48, 68, 0.78);
+      color: #253044;
+      background: #fff;
+      box-shadow: 0 3px 0 rgba(36, 48, 68, 0.18);
+      font-size: 18px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .organelle-card p {
+      margin: 0;
+      color: #3e4b5d;
+      font-size: clamp(11px, 1.18vw, 13px);
+      line-height: 1.55;
+    }
+
+    .structure-tip {
+      position: absolute;
+      z-index: 9;
+      left: 5%;
+      top: 5%;
+      margin: 0;
+      color: #3f6070;
+      font-size: clamp(12px, 1.45vw, 16px);
+      font-weight: 900;
+      line-height: 1.45;
+      text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.82);
+      pointer-events: none;
+    }
+
+    .target-ring {
+      position: absolute;
+      z-index: 4;
+      left: var(--x);
+      top: var(--y);
+      width: var(--size, 7%);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 4px dashed rgba(231, 95, 128, 0.82);
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      pointer-events: none;
+      box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.45), 0 0 22px rgba(231, 95, 128, 0.24);
+    }
+
+    .target-ring.is-visible {
+      opacity: 1;
+      animation: targetPulse 1s steps(4, end) infinite;
+    }
+
+    .target-ring.is-success {
+      border-color: rgba(53, 169, 111, 0.88);
+      animation: targetSuccess 420ms steps(4, end) both;
+    }
+
+    .reaction-burst {
+      position: absolute;
+      z-index: 7;
+      left: var(--x);
+      top: var(--y);
+      width: var(--size, 10%);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0.2);
+      opacity: 0;
+      pointer-events: none;
+      border: 5px solid rgba(255, 255, 255, 0.92);
+      box-shadow: 0 0 0 0 rgba(255, 232, 132, 0.55), 0 0 28px rgba(255, 255, 255, 0.9);
+    }
+
+    .reaction-burst.is-playing {
+      animation: reactionBurst 860ms ease-out forwards;
+    }
+
+    .reaction-zone {
+      position: absolute;
+      z-index: 4;
+      left: var(--x);
+      top: var(--y);
+      width: var(--w);
+      height: var(--h);
+      transform: translate(-50%, -50%);
+      border: 3px dashed rgba(255, 255, 255, 0.88);
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 6px rgba(27, 142, 155, 0.12), 0 0 30px rgba(255, 255, 255, 0.38);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 180ms ease;
+    }
+
+    .reaction-zone.is-visible {
+      opacity: 1;
+      animation: zonePulse 1.25s ease-in-out infinite alternate;
+    }
+
+    .hud {
+      border-radius: 8px;
+      border: 1px solid rgba(36, 48, 68, 0.18);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(18px) saturate(1.2);
+      -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    }
+
+    .hud-main {
+      padding: 16px 16px 10px;
+    }
+
+    .step-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      color: #fff;
+      background: linear-gradient(135deg, #e75f80, #f0a934);
+      border: 1px solid rgba(36, 48, 68, 0.16);
+      box-shadow: 0 8px 18px rgba(231, 95, 128, 0.14);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .hud h2 {
+      margin: 13px 0 8px;
+      font-size: clamp(20px, 2.2vw, 26px);
+      line-height: 1.22;
+      letter-spacing: 0;
+      text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.92);
+    }
+
+    .hud p {
+      margin: 0;
+      color: #3e4b5d;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .fact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .fact {
+      min-height: 58px;
+      padding: 9px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(36, 48, 68, 0.12);
+      background: rgba(255, 255, 255, 0.74);
+      box-shadow: 0 4px 14px rgba(24, 44, 60, 0.06);
+    }
+
+    .fact span {
+      display: block;
+      margin-bottom: 4px;
+      color: #697580;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .fact b {
+      display: block;
+      color: #26384a;
+      font-size: 13px;
+      line-height: 1.35;
+      letter-spacing: 0;
+    }
+
+    .progress {
+      height: 9px;
+      background: rgba(37, 48, 68, 0.1);
+      overflow: hidden;
+    }
+
+    .progress span {
+      display: block;
+      width: var(--progress);
+      height: 100%;
+      background: linear-gradient(90deg, #e75f80, #f0a934, #17b29d);
+      transition: width 260ms ease;
+    }
+
+    .steps {
+      display: grid;
+      gap: 8px;
+      padding: 0 16px 16px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 9px;
+      align-items: center;
+      min-height: 44px;
+      padding: 7px 9px 7px 7px;
+      border-radius: 12px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.78);
+      cursor: pointer;
+      border: 1px solid rgba(36, 48, 68, 0.14);
+      box-shadow: 0 6px 18px rgba(36, 48, 68, 0.07);
+      text-align: left;
+    }
+
+    .step b {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      color: #fff;
+      background: #91a3ad;
+      font-size: 14px;
+    }
+
+    .step.is-active {
+      color: var(--ink);
+      background: #fff;
+      border-color: rgba(231, 95, 128, 0.42);
+      box-shadow: 0 10px 24px rgba(231, 95, 128, 0.12);
+    }
+
+    .step.is-active b {
+      background: var(--orange);
+    }
+
+    .step.is-done {
+      color: #2d6b57;
+      border-color: rgba(35, 158, 108, 0.45);
+      background: #f3fff8;
+    }
+
+    .step.is-done b {
+      font-size: 0;
+      background: #35a96f;
+    }
+
+    .step.is-done b::before {
+      content: "✓";
+      font-size: 16px;
+    }
+
+    .tip,
+    .task-card {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: var(--glass);
+      color: #496070;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .task-card {
+      display: none;
+      border: 2px solid rgba(231, 95, 128, 0.45);
+      background: #fff7e7;
+      box-shadow: 4px 4px 0 rgba(231, 95, 128, 0.11);
+      color: #334254;
+      font-size: 14px;
+    }
+
+    .task-card.is-visible {
+      display: block;
+      animation: cardPop 260ms steps(4, end) both;
+    }
+
+    .task-card strong {
+      display: block;
+      margin-bottom: 3px;
+      color: #d85d73;
+      font-size: 13px;
+    }
+
+    .task-action {
+      margin-top: 10px;
+      min-height: 34px;
+      padding: 0 13px;
+      color: #fff;
+      background: linear-gradient(135deg, #1497a8, #35a96f);
+      border-color: rgba(36, 48, 68, 0.68);
+      box-shadow: 0 4px 0 rgba(20, 102, 88, 0.34), 0 8px 16px rgba(20, 151, 168, 0.16);
+      font-size: 13px;
+    }
+
+    @keyframes pulse {
+      from { transform: translate(-50%, -50%) scale(1); }
+      to { transform: translate(-50%, -50%) scale(1.08); }
+    }
+
+    @keyframes cardPop {
+      0% { opacity: 0; transform: translateY(-12px) rotate(-3deg) scale(0.82); filter: saturate(0.9); }
+      65% { opacity: 1; transform: translateY(2px) rotate(1deg) scale(1.04); filter: saturate(1.08); }
+      100% { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); filter: saturate(1); }
+    }
+
+    @keyframes organFocus {
+      from { filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.82)) drop-shadow(0 0 8px rgba(240, 154, 47, 0.28)); }
+      to { filter: drop-shadow(0 0 24px rgba(255, 255, 255, 1)) drop-shadow(0 0 18px rgba(240, 154, 47, 0.48)); }
+    }
+
+    @keyframes organIdle {
+      0%, 100% { opacity: 0.9; filter: drop-shadow(0 8px 12px rgba(28, 45, 62, 0.12)); }
+      50% { opacity: 0.98; filter: drop-shadow(0 10px 15px rgba(28, 45, 62, 0.18)); }
+    }
+
+    @keyframes decorIdle {
+      0%, 100% { filter: drop-shadow(0 9px 14px rgba(28, 45, 62, 0.14)); }
+      50% { filter: drop-shadow(0 12px 17px rgba(28, 45, 62, 0.2)); }
+    }
+
+    @keyframes spriteIdle {
+      0%, 100% { filter: drop-shadow(0 10px 15px rgba(24, 44, 60, 0.23)); }
+      50% { filter: drop-shadow(0 13px 18px rgba(24, 44, 60, 0.3)) drop-shadow(0 0 7px rgba(255, 255, 255, 0.58)); }
+    }
+
+    @keyframes atpPop {
+      0%, 100% { transform: translate(-50%, -50%) scale(var(--scale, 1)); }
+      50% { transform: translate(-50%, -50%) scale(calc(var(--scale, 1) * 1.12)); }
+    }
+
+    @keyframes labelWiggle {
+      0%, 100% { filter: drop-shadow(0 2px 0 rgba(36, 48, 68, 0.06)); }
+      40% { filter: drop-shadow(1px 3px 0 rgba(36, 48, 68, 0.1)); }
+      70% { filter: drop-shadow(-1px 2px 0 rgba(36, 48, 68, 0.08)); }
+    }
+
+    @keyframes targetPulse {
+      0%, 100% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.72; }
+      50% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+    }
+
+    @keyframes targetSuccess {
+      0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1.35); opacity: 0; }
+    }
+
+    @keyframes reactionBurst {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.2);
+        box-shadow: 0 0 0 0 rgba(255, 232, 132, 0.55), 0 0 28px rgba(255, 255, 255, 0.9);
+      }
+      25% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.85);
+        box-shadow: 0 0 0 30px rgba(255, 232, 132, 0), 0 0 52px rgba(255, 255, 255, 0);
+      }
+    }
+
+    @keyframes zonePulse {
+      from {
+        filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.45));
+      }
+      to {
+        filter: drop-shadow(0 0 17px rgba(137, 228, 236, 0.72));
+      }
+    }
+
+    @keyframes productPop {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.35);
+      }
+      62% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.16);
+      }
+      100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        align-items: flex-start;
+      }
+
+      .hud {
+        order: 3;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .header {
+        position: relative;
+        display: block;
+        overflow: hidden;
+      }
+
+      .chapter-kicker {
+        font-size: clamp(11px, 3vw, 14px);
+        max-width: calc(100% - 150px);
+      }
+
+      .book-pill {
+        position: absolute;
+        top: 0;
+        right: 0;
+        padding: 2px 6px 3px;
+        border-width: 2px;
+        font-size: clamp(9px, 2.35vw, 11px);
+        max-width: 146px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      h1 {
+        margin-top: 7px;
+        font-size: clamp(22px, 7.1vw, 30px);
+        overflow-wrap: anywhere;
+      }
+
+      .controls {
+        margin-top: 10px;
+        padding-top: 0;
+        justify-content: flex-start;
+      }
+
+      .stage.is-explore-mode #pyruvate:not(.is-hidden),
+      .stage.is-explore-mode #water:not(.is-hidden) {
+        min-width: 48px;
+        min-height: 48px;
+        font-size: 10px;
+      }
+
+      button {
+        min-height: 38px;
+        padding: 0 12px;
+        font-size: 13px;
+      }
+
+      .hud-main {
+        padding: 14px;
+      }
+
+      .steps {
+        padding: 0 14px 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div class="title-block">
+        <p class="chapter-kicker">必修1·细胞呼吸的原理和应用</p>
+        <h1>有氧呼吸能量工厂动态地图</h1>
+      </div>
+      <p class="book-pill">一生儿《高中生物一本通》</p>
+      <div class="controls">
+        <button id="exploreBtn" class="explore" type="button" aria-pressed="false">探索模式</button>
+        <button id="nextBtn" class="secondary" type="button">下一步</button>
+        <button id="playBtn" class="primary" type="button">自动播放</button>
+        <button id="resetBtn" class="secondary" type="button">重新开始</button>
+      </div>
+    </header>
+
+    <section id="stage" class="stage" aria-label="有氧呼吸动态能量工厂">
+      <div class="map"></div>
+      <video class="map-video" autoplay muted loop playsinline preload="auto" aria-hidden="true" poster="assets/aerobic-respiration-stage-bg.png">
+        <source src="assets/video/mitochondria-loop.mp4" type="video/mp4">
+      </video>
+      <p class="structure-tip">点击细胞结构名称和物质查看说明</p>
+
+      <div id="glucose" class="molecule" data-info="glucose" style="--x: 18%; --y: 58%; --size: 7.2%; --c1: #ffe486; --c2: #ffa23d; --c3: #df5745; --delay: .1s;">葡萄糖</div>
+      <div id="pyruvate" class="molecule is-hidden" data-info="pyruvate" style="--x: 41%; --y: 62%; --size: 6.7%; --c1: #aee9ff; --c2: #54bed2; --c3: #1497a8; --delay: .35s;">丙酮酸</div>
+      <div id="water" class="molecule" data-info="water" style="--x: 51%; --y: 77%; --size: 5.8%; --c1: #ffffff; --c2: #8fdcff; --c3: #3f9fd6; --delay: .48s;">H₂O</div>
+      <div id="productWater" class="molecule is-hidden" data-info="product-water" style="--x: 81%; --y: 39%; --size: 7.4%; --c1: #ffffff; --c2: #9de6ff; --c3: #45a9df; --delay: .72s;">H₂O</div>
+      <div id="hydrogen" class="molecule is-hidden" data-info="hydrogen" style="--x: 36%; --y: 56%; --size: 6.8%; --c1: #e4fff1; --c2: #66cf92; --c3: #35a96f; --delay: .55s;">少量[H]</div>
+      <div id="hydrogen2" class="molecule is-hidden" data-info="hydrogen2" style="--x: 60.5%; --y: 48%; --size: 6.8%; --c1: #e4fff1; --c2: #8be9aa; --c3: #2f8f6b; --delay: .62s;">大量[H]</div>
+      <div id="co2" class="molecule is-hidden" data-info="co2" style="--x: 64%; --y: 49%; --size: 5.9%; --c1: #f5f7ff; --c2: #b8c1cf; --c3: #687587; --delay: .65s;">CO₂</div>
+      <div id="oxygen" class="molecule" data-info="oxygen" style="--x: 91%; --y: 24%; --size: 6.1%; --c1: #fff; --c2: #b7a7ff; --c3: #6c59c7; --delay: .75s;">O₂</div>
+
+      <div id="atp1" class="atp is-hidden" aria-label="少量 ATP" style="--x: 36%; --y: 68%; --size: 92px; --scale: .9;">少量 ATP</div>
+      <div id="atp2" class="atp is-hidden" aria-label="少量 ATP" style="--x: 59%; --y: 68%; --size: 92px; --scale: .9;">少量 ATP</div>
+      <div id="atp3" class="atp is-hidden" aria-label="大量 ATP" style="--x: 80%; --y: 23%; --size: 108px; --scale: 1.05;">大量 ATP</div>
+
+      <button class="organ-label" data-info="cytoplasm" type="button" style="--x: 21%; --y: 76%; --delay: .2s;">细胞质基质</button>
+      <button class="organ-label" data-info="mitochondrion" type="button" style="--x: 71%; --y: 79%; --delay: .45s;">线粒体</button>
+      <button class="organ-label" data-info="mitochondrial-matrix" type="button" style="--x: 49%; --y: 55%; --delay: .6s;">线粒体基质</button>
+      <button class="organ-label" data-info="inner-membrane" type="button" style="--x: 81%; --y: 52%; --delay: .9s;">线粒体内膜</button>
+      <div id="reactionZone" class="reaction-zone" aria-hidden="true" style="--x: 81%; --y: 39%; --w: 19%; --h: 18%;"></div>
+      <div id="targetRing" class="target-ring" aria-hidden="true"></div>
+      <div id="reactionBurst" class="reaction-burst" aria-hidden="true" style="--x: 81%; --y: 39%; --size: 12%;"></div>
+      <div id="organelleCard" class="organelle-card" role="status" aria-live="polite"></div>
+    </section>
+
+    <aside class="hud" aria-live="polite">
+      <div class="progress"><span id="progressBar" style="--progress: 25%;"></span></div>
+      <div class="hud-main">
+        <span id="stepLabel" class="step-label">第 1 步 / 3</span>
+        <h2 id="stepTitle">葡萄糖初步分解</h2>
+        <p id="stepDesc">第一阶段在细胞质基质中进行：葡萄糖分解为丙酮酸和 [H]，释放少量能量。</p>
+        <div class="fact-grid" aria-label="阶段要点">
+          <div class="fact"><span>场所</span><b id="factPlace">细胞质基质</b></div>
+          <div class="fact"><span>输入</span><b id="factInput">葡萄糖</b></div>
+          <div class="fact"><span>输出</span><b id="factOutput">丙酮酸、[H]</b></div>
+          <div class="fact"><span>能量</span><b id="factEnergy">少量 ATP</b></div>
+        </div>
+        <div id="taskCard" class="task-card" role="status" aria-live="polite"></div>
+        <div class="tip">第一阶段在细胞质基质，第二阶段在线粒体基质，第三阶段在线粒体内膜。葡萄糖不能直接进入线粒体，H₂O 参与第二阶段，O₂ 参与第三阶段。</div>
+      </div>
+      <div id="stepList" class="steps"></div>
+    </aside>
+  </main>
+
+  <script>
+    const stage = document.querySelector("#stage");
+    const progressBar = document.querySelector("#progressBar");
+    const stepLabel = document.querySelector("#stepLabel");
+    const stepTitle = document.querySelector("#stepTitle");
+    const stepDesc = document.querySelector("#stepDesc");
+    const factPlace = document.querySelector("#factPlace");
+    const factInput = document.querySelector("#factInput");
+    const factOutput = document.querySelector("#factOutput");
+    const factEnergy = document.querySelector("#factEnergy");
+    const stepList = document.querySelector("#stepList");
+    const exploreBtn = document.querySelector("#exploreBtn");
+    const playBtn = document.querySelector("#playBtn");
+    const nextBtn = document.querySelector("#nextBtn");
+    const resetBtn = document.querySelector("#resetBtn");
+    const organelleCard = document.querySelector("#organelleCard");
+    const taskCard = document.querySelector("#taskCard");
+    const targetRing = document.querySelector("#targetRing");
+    const reactionBurst = document.querySelector("#reactionBurst");
+    const reactionZone = document.querySelector("#reactionZone");
+
+    const infoMap = {
+      cytoplasm: {
+        title: "细胞质基质",
+        desc: "有氧呼吸第一阶段的场所。葡萄糖在这里分解成丙酮酸，产生少量 [H]，释放少量能量。"
+      },
+      mitochondrion: {
+        title: "线粒体",
+        desc: "有氧呼吸的主要场所。第二阶段发生在线粒体基质，第三阶段发生在线粒体内膜。"
+      },
+      "mitochondrial-matrix": {
+        title: "线粒体基质",
+        desc: "第二阶段的场所。丙酮酸和水反应，彻底分解产生 CO₂，并形成大量 [H]。"
+      },
+      "inner-membrane": {
+        title: "线粒体内膜",
+        desc: "第三阶段的场所。第一、二阶段产生的 [H] 都会与氧结合生成水，同时释放大量能量，合成大量 ATP。"
+      },
+      glucose: {
+        title: "葡萄糖",
+        desc: "有氧呼吸的主要有机物原料，先在细胞质基质中被初步分解；葡萄糖不能直接进入线粒体。"
+      },
+      pyruvate: {
+        title: "丙酮酸",
+        desc: "糖酵解产物，随后进入线粒体基质，与水一起参与第二阶段反应。"
+      },
+      water: {
+        title: "水",
+        desc: "水参与有氧呼吸第二阶段，在线粒体基质中和丙酮酸一起反应；这里的 H₂O 作为第二阶段反应物。"
+      },
+      "product-water": {
+        title: "生成的水",
+        desc: "第三阶段产物。[H] 在线粒体内膜与 O₂ 结合，生成 H₂O，并释放大量能量。"
+      },
+      hydrogen: {
+        title: "少量 [H]",
+        desc: "糖酵解阶段在细胞质基质中产生的少量还原氢。第三阶段中，它会和第二阶段产生的大量 [H] 一起进入线粒体内膜，与氧结合。"
+      },
+      hydrogen2: {
+        title: "大量 [H]",
+        desc: "丙酮酸和水在线粒体基质中反应时产生的大量还原氢。第三阶段中，它也会进入线粒体内膜，与氧结合。"
+      },
+      co2: {
+        title: "CO₂",
+        desc: "第二阶段产物，来自丙酮酸在线粒体基质中的彻底分解。"
+      },
+      oxygen: {
+        title: "氧气",
+        desc: "氧气在第三阶段参与反应，是有氧呼吸能够彻底释放能量的关键。"
+      }
+    };
+
+    const steps = [
+      {
+        title: "葡萄糖初步分解",
+        desc: "第一阶段在细胞质基质中进行：葡萄糖分解为丙酮酸和 [H]，释放少量能量。",
+        actor: "glucose",
+        organ: "",
+        x: 18,
+        y: 58,
+        facts: {
+          place: "细胞质基质",
+          input: "葡萄糖",
+          output: "丙酮酸、少量[H]",
+          energy: "少量 ATP"
+        },
+        target: { actor: "glucose", x: 35, y: 57, size: 8, text: "把葡萄糖拖到细胞质基质的反应区，生成丙酮酸和 [H]。" },
+        visible: { glucose: 1, pyruvate: 0, water: 1, productWater: 0, hydrogen: 0, hydrogen2: 0, co2: 0, oxygen: 1, atp1: 0, atp2: 0, atp3: 0 }
+      },
+      {
+        title: "丙酮酸彻底分解",
+        desc: "第二阶段在线粒体基质中进行：丙酮酸与 H₂O 反应，彻底分解生成 CO₂ 和大量 [H]，释放少量能量。",
+        actor: "pyruvate",
+        organ: "",
+        x: 41,
+        y: 62,
+        facts: {
+          place: "线粒体基质",
+          input: "丙酮酸、H₂O",
+          output: "CO₂、大量[H]",
+          energy: "少量 ATP"
+        },
+        targets: [
+          { actor: "pyruvate", x: 61, y: 48, size: 8, text: "丙酮酸由糖酵解产生，先停留在线粒体外；把它拖入线粒体基质。" },
+          { actor: "water", x: 58, y: 59, size: 7, text: "把 H₂O 也拖入线粒体基质，参与第二阶段反应。" }
+        ],
+        visible: { glucose: 0, pyruvate: 1, water: 1, productWater: 0, hydrogen: 1, hydrogen2: 0, co2: 0, oxygen: 1, atp1: 1, atp2: 0, atp3: 0 }
+      },
+      {
+        title: "[H] 的氧化",
+        desc: "第三阶段在线粒体内膜上进行：第一、二阶段产生的 [H] 与 O₂ 结合生成 H₂O，同时合成大量 ATP。",
+        actor: "hydrogen",
+        organ: "",
+        x: 37,
+        y: 45,
+        facts: {
+          place: "线粒体内膜",
+          input: "少量[H]、大量[H]、O₂",
+          output: "H₂O",
+          energy: "大量 ATP"
+        },
+        targets: [
+          { actor: "hydrogen", x: 78.5, y: 39.5, size: 8, text: "先把第一阶段产生的少量 [H] 拖进线粒体内膜虚线框。" },
+          { actor: "hydrogen2", x: 81, y: 42.5, size: 8, text: "再把第二阶段产生的大量 [H] 拖进线粒体内膜虚线框。" },
+          { actor: "oxygen", x: 83.5, y: 36.5, size: 8, text: "最后把 O₂ 拖进虚线框，与 [H] 结合生成 H₂O。" }
+        ],
+        visible: { glucose: 0, pyruvate: 0, water: 0, productWater: 0, hydrogen: 1, hydrogen2: 1, co2: 1, oxygen: 1, atp1: 1, atp2: 1, atp3: 0 }
+      }
+    ];
+
+    const actors = {
+      glucose: document.querySelector("#glucose"),
+      pyruvate: document.querySelector("#pyruvate"),
+      water: document.querySelector("#water"),
+      productWater: document.querySelector("#productWater"),
+      hydrogen: document.querySelector("#hydrogen"),
+      hydrogen2: document.querySelector("#hydrogen2"),
+      co2: document.querySelector("#co2"),
+      oxygen: document.querySelector("#oxygen")
+    };
+
+    const allItems = {
+      ...actors,
+      atp1: document.querySelector("#atp1"),
+      atp2: document.querySelector("#atp2"),
+      atp3: document.querySelector("#atp3")
+    };
+
+    const startPositions = {
+      glucose: { x: 18, y: 58 },
+      pyruvate: { x: 41, y: 62 },
+      water: { x: 51, y: 77 },
+      productWater: { x: 81, y: 39 },
+      hydrogen: { x: 36, y: 56 },
+      hydrogen2: { x: 60.5, y: 48 },
+      co2: { x: 64, y: 49 },
+      oxygen: { x: 91, y: 24 }
+    };
+
+    let currentStep = 0;
+    let isPlaying = false;
+    let isExploreMode = false;
+    let completedSteps = new Set();
+    let completedTargets = {};
+    let suppressInfoClick = false;
+
+    function setPosition(node, x, y) {
+      node.style.setProperty("--x", `${x}%`);
+      node.style.setProperty("--y", `${y}%`);
+    }
+
+    function setAlpha(node, alpha = 1) {
+      node.style.setProperty("--alpha", alpha);
+    }
+
+    function setVisibility(visible = {}) {
+      Object.entries(allItems).forEach(([id, node]) => {
+        node.classList.toggle("is-hidden", !visible[id]);
+      });
+    }
+
+    function setTargetRing(target, success = false) {
+      targetRing.classList.remove("is-visible", "is-success");
+      if (!target) return;
+      targetRing.style.setProperty("--x", `${target.x}%`);
+      targetRing.style.setProperty("--y", `${target.y}%`);
+      targetRing.style.setProperty("--size", `${target.size || 7}%`);
+      targetRing.classList.add(success ? "is-success" : "is-visible");
+    }
+
+    function updateTaskCard(step) {
+      if (!isExploreMode) {
+        taskCard.classList.remove("is-visible");
+        taskCard.innerHTML = "";
+        setTargetRing(null);
+        return;
+      }
+
+      if (completedSteps.size === steps.length) {
+        taskCard.innerHTML = `<strong>探索完成</strong>葡萄糖已经经过初步分解、丙酮酸彻底分解和 [H] 的氧化，最终产生大量 ATP。`;
+        taskCard.classList.add("is-visible");
+        setTargetRing(null);
+        return;
+      }
+
+      const nextTarget = getNextTarget(step);
+      if (nextTarget) {
+        const doneCount = step.targets ? getStepTargetSet(currentStep).size : 0;
+        const suffix = step.targets ? `（${doneCount}/${step.targets.length}）` : "";
+        taskCard.innerHTML = `<strong>当前任务${suffix}</strong>${nextTarget.text}`;
+        setTargetRing(nextTarget);
+      } else if (step.target) {
+        taskCard.innerHTML = `<strong>当前任务</strong>${step.target.text}`;
+        setTargetRing(step.target);
+      } else {
+        taskCard.innerHTML = `<strong>观察任务</strong>${step.desc}`;
+        setTargetRing(null);
+      }
+      taskCard.classList.add("is-visible");
+    }
+
+    function markStepDone(index) {
+      completedSteps.add(index);
+      document.querySelectorAll(".step").forEach((node, nodeIndex) => {
+        node.classList.toggle("is-done", completedSteps.has(nodeIndex));
+      });
+    }
+
+    function getStepTargetSet(index) {
+      if (!completedTargets[index]) completedTargets[index] = new Set();
+      return completedTargets[index];
+    }
+
+    function getTargets(step) {
+      return step.targets || (step.target ? [step.target] : []);
+    }
+
+    function getNextTarget(step) {
+      const targets = getTargets(step);
+      if (!targets.length) return null;
+      const done = getStepTargetSet(currentStep);
+      return targets.find((target) => !done.has(target.actor)) || null;
+    }
+
+    async function showThirdStageProducts() {
+      const fusionPoint = { x: 81, y: 39 };
+      await Promise.all([
+        animateMove(actors.hydrogen, currentPosition(actors.hydrogen), fusionPoint, 260),
+        animateMove(actors.hydrogen2, currentPosition(actors.hydrogen2), fusionPoint, 260),
+        animateMove(actors.oxygen, currentPosition(actors.oxygen), fusionPoint, 260)
+      ]);
+      await wait(130);
+      setPosition(actors.productWater, 81, 39);
+      actors.hydrogen.classList.add("is-hidden");
+      actors.hydrogen2.classList.add("is-hidden");
+      actors.oxygen.classList.add("is-hidden");
+      reactionZone.classList.remove("is-visible");
+      allItems.productWater.classList.remove("is-hidden");
+      allItems.atp3.classList.remove("is-hidden");
+      actors.productWater.style.animation = "none";
+      void actors.productWater.offsetWidth;
+      actors.productWater.style.animation = "productPop 520ms ease-out both";
+      reactionBurst.classList.remove("is-playing");
+      void reactionBurst.offsetWidth;
+      reactionBurst.classList.add("is-playing");
+    }
+
+    function currentPosition(node) {
+      return {
+        x: parseFloat(node.style.getPropertyValue("--x")),
+        y: parseFloat(node.style.getPropertyValue("--y"))
+      };
+    }
+
+    async function releaseCo2() {
+      setAlpha(actors.co2, 1);
+      actors.co2.classList.remove("is-hidden", "is-muted");
+      await wait(120);
+      await animateMove(actors.co2, currentPosition(actors.co2), { x: 72, y: 29 }, 720);
+      setAlpha(actors.co2, 0.46);
+      actors.co2.classList.add("is-muted");
+    }
+
+    async function showSecondStageProducts() {
+      setTargetRing(null);
+      if (isExploreMode && currentStep === 1) {
+        taskCard.innerHTML = `<strong>正在反应</strong>丙酮酸和 H₂O 在线粒体基质中反应，原地生成大量 [H] 和 CO₂。`;
+      }
+      actors.pyruvate.classList.add("is-hidden");
+      actors.water.classList.add("is-hidden");
+      setPosition(actors.hydrogen2, 60.5, 48);
+      setPosition(actors.co2, 58.5, 58.5);
+      setAlpha(actors.hydrogen2, 1);
+      setAlpha(actors.co2, 1);
+      actors.hydrogen2.classList.remove("is-hidden", "is-muted");
+      actors.co2.classList.remove("is-hidden", "is-muted");
+      allItems.atp2.classList.remove("is-hidden");
+      await wait(1400);
+      await releaseCo2();
+    }
+
+    function updateStep(index, moveActor = true) {
+      currentStep = Math.max(0, Math.min(index, steps.length - 1));
+      const step = steps[currentStep];
+
+      stepLabel.textContent = `第 ${currentStep + 1} 步 / ${steps.length}`;
+      stepTitle.textContent = step.title;
+      stepDesc.textContent = step.desc;
+      factPlace.textContent = step.facts.place;
+      factInput.textContent = step.facts.input;
+      factOutput.textContent = step.facts.output;
+      factEnergy.textContent = step.facts.energy;
+      progressBar.style.setProperty("--progress", `${((currentStep + 1) / steps.length) * 100}%`);
+
+      document.querySelectorAll(".step").forEach((node, nodeIndex) => {
+        node.classList.toggle("is-active", nodeIndex === currentStep);
+        node.classList.toggle("is-done", completedSteps.has(nodeIndex));
+      });
+
+      const activeActors = new Set(getTargets(step).map((target) => target.actor));
+      if (step.actor) activeActors.add(step.actor);
+      Object.entries(actors).forEach(([id, node]) => {
+        node.classList.toggle("is-current", activeActors.has(id));
+        node.classList.toggle("is-muted", !activeActors.has(id));
+      });
+
+      document.querySelectorAll(".organ").forEach((organ) => {
+        organ.classList.toggle("is-active", organ.dataset.organ === step.organ);
+      });
+
+      setVisibility(step.visible);
+      if (currentStep === 2 && !actors.co2.classList.contains("is-hidden")) {
+        setPosition(actors.co2, 72, 29);
+        setAlpha(actors.co2, 0.46);
+      }
+      if (currentStep === 1 && !completedSteps.has(1)) {
+        allItems.atp2.classList.add("is-hidden");
+        actors.hydrogen2.classList.add("is-hidden");
+        actors.co2.classList.add("is-hidden");
+        setAlpha(actors.co2, 1);
+      }
+      reactionZone.classList.toggle("is-visible", currentStep === steps.length - 1 && !completedSteps.has(currentStep));
+      if (isExploreMode && currentStep === steps.length - 1 && !completedSteps.has(currentStep)) {
+        allItems.atp3.classList.add("is-hidden");
+        allItems.productWater.classList.add("is-hidden");
+        actors.hydrogen.classList.remove("is-hidden");
+        actors.hydrogen2.classList.remove("is-hidden");
+        actors.oxygen.classList.remove("is-hidden");
+      }
+      if (moveActor && actors[step.actor]) {
+        setPosition(actors[step.actor], step.x, step.y);
+      }
+      updateTaskCard(step);
+    }
+
+    function buildStepList() {
+      steps.forEach((step, index) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "step";
+        item.innerHTML = `<b>${index + 1}</b><span>${step.title}</span>`;
+        item.addEventListener("click", () => updateStep(index));
+        stepList.appendChild(item);
+      });
+    }
+
+    function showInfo(id) {
+      const info = infoMap[id];
+      if (!info) return;
+      organelleCard.classList.remove("is-visible");
+      void organelleCard.offsetWidth;
+      organelleCard.innerHTML = `
+        <div class="card-head">
+          <h3>${info.title}</h3>
+          <button class="card-close" type="button" aria-label="关闭说明">×</button>
+        </div>
+        <p>${info.desc}</p>
+      `;
+      organelleCard.classList.add("is-visible");
+      organelleCard.querySelector(".card-close").addEventListener("click", () => {
+        organelleCard.classList.remove("is-visible");
+        organelleCard.innerHTML = "";
+      });
+    }
+
+    function animateMove(node, from, to, duration = 900) {
+      return new Promise((resolve) => {
+        const start = performance.now();
+        function frame(now) {
+          const raw = Math.min((now - start) / duration, 1);
+          const eased = 1 - Math.pow(1 - raw, 3);
+          setPosition(node, from.x + (to.x - from.x) * eased, from.y + (to.y - from.y) * eased);
+          if (raw < 1) {
+            requestAnimationFrame(frame);
+          } else {
+            resolve();
+          }
+        }
+        requestAnimationFrame(frame);
+      });
+    }
+
+    function wait(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
+    async function playAll() {
+      if (isPlaying) return;
+      if (isExploreMode) toggleExploreMode(false);
+      isPlaying = true;
+      playBtn.textContent = "播放中...";
+      resetItems();
+
+      updateStep(0, false);
+      await animateMove(actors.glucose, { x: 18, y: 58 }, { x: 35, y: 57 }, 900);
+      await wait(450);
+
+      updateStep(1, false);
+      setPosition(actors.pyruvate, 41, 62);
+      setPosition(actors.hydrogen, 36, 56);
+      setPosition(allItems.atp1, 36, 68);
+      setPosition(actors.water, 51, 77);
+      await Promise.all([
+        animateMove(actors.pyruvate, { x: 41, y: 62 }, { x: 61, y: 48 }, 1000),
+        animateMove(actors.water, { x: 51, y: 77 }, { x: 58, y: 59 }, 1000)
+      ]);
+      await showSecondStageProducts();
+      await wait(450);
+
+      updateStep(2, false);
+      setPosition(actors.hydrogen, 36, 56);
+      setPosition(actors.hydrogen2, 60.5, 48);
+      setPosition(actors.oxygen, 91, 24);
+      await Promise.all([
+        animateMove(actors.hydrogen, { x: 36, y: 56 }, { x: 78.5, y: 39.5 }, 1000),
+        animateMove(actors.hydrogen2, { x: 60.5, y: 48 }, { x: 81, y: 42.5 }, 1000),
+        animateMove(actors.oxygen, { x: 91, y: 24 }, { x: 83.5, y: 36.5 }, 700)
+      ]);
+      await showThirdStageProducts();
+
+      isPlaying = false;
+      playBtn.textContent = "自动播放";
+    }
+
+    function resetItems() {
+      completedSteps.clear();
+      completedTargets = {};
+      Object.entries(startPositions).forEach(([id, pos]) => setPosition(actors[id], pos.x, pos.y));
+      Object.values(actors).forEach((node) => setAlpha(node, 1));
+      updateStep(0, false);
+    }
+
+    function toggleExploreMode(forceState) {
+      isExploreMode = typeof forceState === "boolean" ? forceState : !isExploreMode;
+      stage.classList.toggle("is-explore-mode", isExploreMode);
+      exploreBtn.textContent = isExploreMode ? "退出探索" : "探索模式";
+      exploreBtn.setAttribute("aria-pressed", String(isExploreMode));
+      resetItems();
+    }
+
+    function distancePercent(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    async function handleExploreDrop(node) {
+      if (!isExploreMode || isPlaying) return;
+      const step = steps[currentStep];
+      const targets = getTargets(step);
+      const target = targets.find((item) => item.actor === node.id);
+      if (!target) return;
+
+      const x = parseFloat(node.style.getPropertyValue("--x"));
+      const y = parseFloat(node.style.getPropertyValue("--y"));
+      const hit = distancePercent({ x, y }, target) <= 6.5;
+
+      if (!hit) {
+        taskCard.innerHTML = `<strong>还差一点</strong>${target.text}`;
+        const start = startPositions[node.id] || { x: step.x, y: step.y };
+        await animateMove(node, { x, y }, start, 320);
+        return;
+      }
+
+      setTargetRing(target, true);
+      getStepTargetSet(currentStep).add(node.id);
+      setPosition(node, target.x, target.y);
+      await wait(360);
+
+      if (getStepTargetSet(currentStep).size < targets.length) {
+        updateTaskCard(step);
+        return;
+      }
+
+      const isFinalStep = currentStep === steps.length - 1;
+
+      if (!isFinalStep) {
+        markStepDone(currentStep);
+      }
+      if (currentStep === 1) {
+        await showSecondStageProducts();
+        await wait(260);
+      }
+      if (isFinalStep) {
+        taskCard.innerHTML = `<strong>正在反应</strong>少量 [H]、大量 [H] 与 O₂ 在线粒体内膜结合，生成 H₂O。`;
+        setTargetRing(null);
+        await showThirdStageProducts();
+      }
+      if (currentStep < steps.length - 1) {
+        updateStep(currentStep + 1, false);
+      }
+      if (isFinalStep) {
+        completedSteps = new Set(steps.map((_, index) => index));
+        document.querySelectorAll(".step").forEach((nodeItem) => nodeItem.classList.add("is-done"));
+        taskCard.innerHTML = `<strong>探索完成</strong>少量 [H]、大量 [H] 在线粒体内膜与 O₂ 结合生成 H₂O，释放大量能量并合成大量 ATP。`;
+        setTargetRing(null);
+      }
+    }
+
+    function makeDraggable(node) {
+      let dragging = false;
+      let hasMoved = false;
+      let start = null;
+
+      function moveToClient(clientX, clientY) {
+        if (!dragging || isPlaying || !isExploreMode) return;
+        if (start && Math.hypot(clientX - start.x, clientY - start.y) > 4) hasMoved = true;
+        const rect = stage.getBoundingClientRect();
+        const x = ((clientX - rect.left) / rect.width) * 100;
+        const y = ((clientY - rect.top) / rect.height) * 100;
+        setPosition(node, Math.max(2, Math.min(98, x)), Math.max(2, Math.min(98, y)));
+      }
+
+      node.addEventListener("pointerdown", (event) => {
+        if (!isExploreMode) return;
+        event.preventDefault();
+        dragging = true;
+        hasMoved = false;
+        start = { x: event.clientX, y: event.clientY };
+        node.classList.add("is-dragging");
+        node.setPointerCapture(event.pointerId);
+      });
+
+      node.addEventListener("pointermove", (event) => moveToClient(event.clientX, event.clientY));
+      node.addEventListener("pointerup", (event) => {
+        if (!dragging) return;
+        node.releasePointerCapture(event.pointerId);
+        dragging = false;
+        node.classList.remove("is-dragging");
+        if (hasMoved) {
+          suppressInfoClick = true;
+          window.setTimeout(() => {
+            suppressInfoClick = false;
+          }, 0);
+          handleExploreDrop(node);
+        }
+        start = null;
+      });
+      node.addEventListener("pointercancel", () => {
+        dragging = false;
+        node.classList.remove("is-dragging");
+        start = null;
+      });
+    }
+
+    buildStepList();
+    document.querySelectorAll("[data-info]").forEach((node) => {
+      node.addEventListener("click", () => {
+        if (suppressInfoClick) {
+          suppressInfoClick = false;
+          return;
+        }
+        showInfo(node.dataset.info);
+      });
+    });
+    Object.values(actors).forEach(makeDraggable);
+    updateStep(0, false);
+
+    exploreBtn.addEventListener("click", () => toggleExploreMode());
+    playBtn.addEventListener("click", playAll);
+    nextBtn.addEventListener("click", () => updateStep((currentStep + 1) % steps.length));
+    resetBtn.addEventListener("click", resetItems);
+  </script>
+</body>
+</html>
